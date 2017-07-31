@@ -1,0 +1,537 @@
+==============
+Audio Chipset:
+==============
+
+TI Offers Digital Input Class-D with DSP:
+	TAS5713 <- probably not
+	TAS5753 <- this one isn't bad
+	TAS5754 <- still a good choice
+	TAS5782 <- this one is really nice
+	nevermind, TI failed -> software is terrible, can't be used without eval module
+
+therefore:
+Analog Devices ADAU1701 CODEC + DSP
+	4 analog outputs -> 2 can be used for headphone/debugging
+						2 for TPA3128 input
+
+	2 analog inputs -> stereo input from AUX
+		-> are op amp buffers necessary for AUX jack -> ADAU1701 ADC?
+	I2S from Digital Input (BC127) -> GPIO of ADAU1701
+
+	Is it possible to internally MUX analog inputs and I2S Inputs?
+	Are there enough GPIOs on the ADAU1701?
+	What crystal to use for ADAU1701?
+
+	-----------------------------------------
+	I2S Master/Slave between BC127 & ADAU1701
+	-----------------------------------------
+	Master has to provide the clock
+		- let ADAU1701 be the master
+		- this is configurable in software, doesn't affect hardware design
+		- run at 24 bits (BC127 works at 16 bits, will truncate) and 48KHz
+			-> does this mean a ADAU1702 can be used?
+
+	-----------
+	SPI vs. I2C
+	-----------
+
+	------------------
+	Safeload Registers
+	------------------
+	5x28-bit values can be safeloaded while audio is still being processeed
+	1. Write address to safeload address register
+	2. Write data to safeload data register
+	
+	Additionally, apart from filter value changing, can safeload change the
+	audio source? Change system sampling rate?
+
+
+	Voltage Regulator
+		- DVDD regulator can be driven by VDRIVE
+		- needs >90mW dissipation at collector, PNP with current gain > 100
+
+	Master volume/tone controls handled by ADAU1701
+		- is this possible? (yes)
+
+	How to clock ADAU1701?
+
+	Output filter design:
+		- active or passive?
+			- can passive filter be connected directly to power amplifier input?
+		- what op amp?
+
+TPA3128 -> upgrade of infamous TPA3116/3118, pin-to-pin compatible
+
+AUX Jack Input:
+	Opamp buffer + bias -> ADAU1701
+	 	- need 2 channel op amp
+	 	- what gain does this need?	
+	 		- what is the input range of the ADAU1701 ADC?
+	 		- what is the bias point of the ADC?
+	 		- what is the input AC voltage? ( < 1.5V p-p for sure)
+	 		- maximize gain without overloading ADC
+
+
+=================
+Bluetooth Module:
+=================
+
+BC127 breakout -> mini-fied stackable breakout that can be used for multiple projects
+Needs to have board-to-board connector to connect with main boards
+	- can be stacked
+		i.e. rectangular pin headers, mezzanine + standoffs
+	- can be mounted vertically -> kind of like PC expansion cards
+	- needs clearance for components on the breakout
+
+Intended to reduce cost of developing with BC127 -> a failed BC127 causes otherwise
+functional boards to be wasted
+
+Is this worth it? Upfront cost of parts + boards is extra to project + height of board
+
+Requirements:
+	- easy BC127 mounting
+	- optional 50 ohm antenna connector (SMA?)
+	- optional stereo op amp buffer output
+	- programming port breakout (UART)
+	- LED indicator
+
+
+================
+Microcontroller:
+================
+
+MSP430F5529 -> cheap dev board, big interface
+ATMEGA32U4  -> USB interface, cheap dev board, are there enough pins?
+	- yes
+
+MCU must power switch the rest of the circuit:
+	i.e. mute power amp
+		 fully control power to DSP, BC127
+
+Handles User Control Input -> controls DSP
+
+Need to flash Arduino Bootloader onto MCU -> Break out ICSP/SPI port
+Need to break out USB to outside of enclosure
+	- main board -> mechanical mounting board using FFC
+	- any better way of connecting? FFC isn't 50 ohm impedance controlled
+	- signal integrity of USB needs to be evaluated
+
+Does MCU have enough memory to store presets?
+
+
+==============
+User Controls:
+==============
+
+Power Switch -> SPDT? Maybe have ON-OFF-ON to allow for wall operation/charging switch
+Bluetooth/AUX switch
+
+AUX Input Jack
+
+Rotary Encoders:
+	Volume Rotary Encoder
+	Volume LED Ring
+	
+	EQ/Tone Rotary Encoder
+	Tone LED Ring (must have multiple colours)
+	Mode Switch/Momentary Button for EQ/Tone Encoder -> allows for possible 3 band EQ implementation
+		- can be integrated into the encoder -> encoder with built in switch (Bournes PEC09 series)
+		- 2320F-S0015
+
+Battery Level Indication
+
+LED Rings:
+	- 3535 NeoPixels w/integrated driver in a ring
+	- need custom mounting board -> might as well make mounting board for all controls
+
+Possible:
+	- right angle mounted encoders/switches, allowing for USB to be exposed on panel, LED indicators
+	  have separate mounting boards
+	- mounting panel needs to be CNC milled/routed -> what material -> darker wood?
+	- passive components on board (caps for encoders, NeoPixels, etc.)
+
+Alternatively, capacitive touch PCB under wood panel
+	- need a mechanical on-off switch
+	- need mechanical jacks (power, aux, USB)
+	- could be used for other projects -> universal
+	- only needs 3-4 channels, LED indicators
+
+
+======
+Power:
+======
+
+12V Amp Power -> Boost regulator?
+3-4 cell Li-Ion Pack
+Li-Ion Pack Charger <- switching boost?
+Battery gas gauge
+Buck for 3V3 IC power -> up to 150mA drawn from ADAU1701/1401
+Separate Board for power -> this can be reused for future projects! It's a full standalone power supply!
+
+
+==================
+Tentative IC List:
+==================
+
+DSP + CODEC: 		ADAU1701
+Power Amp:			TPA3128
+Microcontroller:	ATMEGA32U4
+Bluetooth Module:	BC127 with integrated antenna
+Op Amp:				Low power, low power supply, RRIO preferred, FET amp (OPA2191?)
+Boost Regulator:	
+Buck/LDO:
+Li-Ion Charger:
+Power Switches:
+
+
+===========
+Connectors:
+===========
+
+Avoid screw terminals where possible
+Prefer locking plug & play connectors
+JST PH connectors are good for interfaces but need smaller/wider connectors
+Stacking connector needed for BC127 breakout <- if this is done
+Thicker connectors needed for power/speaker output
+
+
+==========
+Enclosure:
+==========
+
+CNC Carved Wood
+Epoxy filled LED indication holes -> this might be hard
+Perforated sheet metal grilles to protect speakers -> portability
+Threaded inserts in wood to make speaker mounting face plates removable
+
+How to mount user controls to enclosure? It's gotta look good/be sturdy?
+How to mount boards, battery pack?
+How to break out USB jack for programming MCU from outside enclosure?
+
+Grille attachment:
+	- grille epoxied to wooden frame
+	- wooden frame attached to main enclosure with magnets
+
+
+
+==========
+MEZZANINE:
+==========
+
+Hirose H11703CT-ND
+Amphenol 609-5227-1-ND 50 Position
+		 609-5031-1-ND 30 Position
+		
+		---------
+Power	|1	  30|
+Power	|2	  29|
+Power	|3	  28|
+Power	|4	  27|
+Power	|5	  26|
+		|6	  25|
+		|7	  24|
+		|8	  23|
+		|9	  22|
+		|10	  21|
+		|11	  20|
+		|12	  19|
+		|13	  18|
+		|14	  17|
+		|15	  16|
+		---------
+
+
+================
+Prototyping I2S:
+================
+
+Adafruit Mono Class D I2S amplifier module
+Need a 5V power supply
+Have tiny external speakers
+
+Digital Board can be broken out using another PCB with mezzanine
+
+
+=================================
+Main Board Functional Blocks/ICs:
+=================================
+
+ADAU1701/1401 CODEC & DSP
+	- oscillator
+	- on-chip regulator
+ATMEGA32U4 Microcontroller
+	- oscillator
+External SPI Flash/EEPROM for setting storage on power off (maybe)
+Quad output op amp filter
+	- OPA169x low power, RRIO BJT amps
+Input coupling capacitors (electrolytic)
+Mezzanine (MCU GPIO breakout)
+Indicator LEDs
+Phase Locked Loop
+Oh man I gotta learn how to write firmware D:
+
+	MCU Pin Assignments:
+	ADAU1701:
+		RESETz
+		PLL_Mode0	(maybe)
+		PLL_Mode1	(maybe)
+		SPI/I2C		(probably SPI)
+	Total: 4 (including SPI SS)
+
+	TPA3128:
+		FAULTz
+		SDz
+		MUTE
+	Total: 3
+
+	BC127:
+		UART
+		I2C			(for IO expander)
+		RESETz
+	Total: 1
+
+	Power (interrupts):
+		Shutdown Switch Monitor
+		Shutdown Ready
+	Total: 2
+
+	UI (no interrupts needed - no matter how slow, a full processor loop must have passed):
+		Up Switch
+		Down Switch
+		Play/Pause Switch
+		Mode Switch
+		LEDs (NeoPixels)
+	Total: 10
+
+	ATMega32U4 should have enough pins
+
+Microcontroller Functionalities:
+	- startup setup of ADAU1701
+	- volume, tone, setting control registers of ADAU1701
+	- control (via I2C expander) of BC127
+	- shutdown/mute of TPA3128
+
+
+
+==================================
+Motherboard Functional Blocks/ICs:
+==================================
+
+Interconnects for main board, power supply, user board, mech board
+Class D power amp
+	TPA3116 series design tips:
+	http://www.diyaudio.com/forums/diyaudio-com-wiki/252663-tpa3116d2-boards.html
+Class D design:
+	http://www.diyaudio.com/forums/class-d/205664-match-your-output-filter-your-speakers-all-boards-welcome.html
+	http://www.eetimes.com/document.asp?doc_id=1274877&page_number=1
+	http://www.analog.com/media/en/analog-dialogue/volume-40/number-2/articles/class-d-audio-amplifiers.pdf
+
+Supply caps
+
+TPA3128 (2x30W) can only deliver ~8W to a 8ohm load at 12V PVcc
+	- is this enough to push the speaker to its maximum?
+	- can we work with a lower (i.e. 11V or 10V power supply?)
+	- needs speaker box simulation
+
+================
+Bluetooth Board:
+================
+BC127 IO breakout to mezzanine
+	- as many pins as possible
+	- analog outputs
+	- mic inputs
+	- GPIO & UART
+
+	- GND
+	- 3V3
+	- Op Amp Supply
+	- Analog Right Positive (optional single ended buffer)
+	- Analog Right Negative (GND)
+	- Analog Left Positive  (optional single ended buffer)
+	- Analog Left Negative  (GND)
+	- MIC_BIAS_A 	=> output on BC127 board (not on mezzanine)
+	- MIC_RN		=> output on BC127 board (not on mezzanine)
+	- MIC_RP		=> output on BC127 board (not on mezzanine)
+	- MIC_LN		=> output on BC127 board (not on mezzanine)
+	- MIC_LP		=> output on BC127 board (not on mezzanine)
+	- PIO_0			=> IO EXPANDER
+	- PIO_1			=> IO EXPANDER
+	- PIO_2			=> IO EXPANDER
+	- PIO_3			=> IO EXPANDER
+	- PIO_4			=> IO EXPANDER
+	- PIO_5			=> IO EXPANDER
+	- SPI_PCM#		=> IO EXPANDER
+	- VREGEN		=> keep these to BC127 board
+	- CHG_EXT		=> keep these to BC127 board
+	- VCHG			=> keep these to BC127 board
+	- VBAT_SENSE	=> keep these to BC127 board
+	- VBAT			=> keep these to BC127 board
+	- VDD_PADS		=> keep these to BC127 board
+	- UART_CTS		=> not used
+	- UART_TX
+	- UART_RX
+	- UART_RTS		=> not used
+	- RST#
+	- SPI_PCM#
+	- PCM_SYNC
+	- PCM_CLK
+	- PCM_OUT
+	- PCM_IN
+
+IO Expander
+	TCA9554A 8-bit I2C IO Expander
+
+LEDs
+Optional differential output to single ended analog buffer
+	- OPA169x low powre, RRIO BJT amps
+
+
+===================================
+Power Supply Functional Blocks/ICs:
+===================================
+
+~12V (+/- 2V) rail (class D power amp, analog supply)
+3V3 rail (digital, low voltage analog supply)
+
+Questions:
+	- can Li-Ion/LiPo be run without balancing (but protected)?
+	- is a 12V regulator needed? (the battery varies +/- 2V but the amplifiers don't really care)
+	- what is the best system to protect/balance and charge the batteries
+	- how to switch from battery power to wall power?
+	- do we need a better wall adapter? (have 9V 2A supply)
+	- how does bqSTUDIO & the toolchain for the TI BQ chips work?
+	- is it feasible/necessary to develop entire AFE and BMS for 3 cell Li-Ion
+
+Li-Ion battery pack:
+	- 18650 Li-Ion cells
+	- 3-4S Lithium Ion Polymer (LiPo) pack (easier to get in Canada)
+	Possibilities:
+		- 2S2P (i.e. 2 series, 2 parallel), 7.4V nominal, ~4400mAH (depends on cells)
+		- 3S (i.e. 3 series), 11.1V nominal, ~2200mAH
+		- 4S, 14.8V nominal, ~2200mAH
+	- what are the benefits, drawbacks of each option? (specifically between the parallel pack vs. all series)
+	- cell protection -> why? how? what chips?
+
+LiPo Pack:
+	- easier to get in Canada
+	- how to balance charge?
+		- Intersil has 3-4 cell charger IC in QFN (ugh)
+		- Seiko S-8209A individual stackable protection/balance ICs
+
+12V Boost Converter (or not, if there are enough Li-Ions)
+Li-Ion Pack Charger
+Battery gas gauge (maybe)
+Adjustable buck converter for 3V3 (5V) IC power -> up to 150mA drawn from ADAU1701/1401
+	- LM2736 -> 0.75A, SOT223-6 buck regulator
+Power down delay
+	- comparator
+	- relay and switching FET
+	- alternatively, FET that turns off MCU power -> delay only needs to apply to digital lines
+	- shutdown delay enable pins of regulators/power switches
+
+Possible Board Implementation:
+	- BMS + Regulators
+	- TI: companion AFE + Gas Gauge BMS
+		- BQ76920 3-5 cell AFE
+		- BQ78350 SMBUS Gas Gauge + BMS Controller
+			- calculates charge voltage and current needs, but needs external charger
+		- god bqSTUDIO is a fucking pain in the ass I hate TI
+		- BQ40Z50-R2 -> Li-Ion Battery Pack Manager (this is standalone!!) but it's a 0.4mm QFN T^T
+			- needs bqSTUDIO
+		- BQ40Z60 -> older device, 0.5mm QFN
+			- still needs bqSTUDIO
+
+	- MAXIM Integrated - MAX17205 <- no leads, but specs look good
+		- need protection IC and charging IC (better than TI's AFE + Gauge)
+		- need to evaluate compatibility with protection IC (balancing resistors on MAX17205 may
+		  interfere with protection circuit input)
+		- need CHG DSG driver BQ76200
+
+	- Intersil ISL94202
+		- integrated and standalone balance + protection
+		- very integrated and good functionality
+		- CHG, DSG, PCHG FET drivers
+		- I2C control (full duplex I2C wtf?) with simple registers
+		- does not include gas gauge
+		- 0.4mm QFN-44 <- hard to solder
+		- $8.88 a chip is expensive
+
+	Chargers:
+		- BQ24610 (ok...9$)
+		- BQ24600 (ok...9$)
+		- MAX17435 (wtf!?!?!? 23$???)
+		- ISL9238 (expensive!! 13$ T^T)		<- very integrated, strongest candidate, but no stock
+		- BQ24617
+
+Cell Protection Power FETs:
+	- CSD18534
+	- IRFH8311
+
+Thermistors:
+	- NTC, 10K thermistors: 1 on pack, 1 on PCB near power path FETs
+	- NCP15XH103F03RC
+	- NXFT15XH103FA2B050
+
+Microcontroller Functionalities:
+	- shutdown delay
+	- LED power/charge indicator
+	- charger enable
+	- monitor load/adapter status, turn on/off:
+		- charge controller
+		- switching regulators
+		- itself (low power mode, wait for interrupt?)
+
+	- Pins:
+	   -> ISL94202
+		- SDA
+		- SCL
+		- INT (active low, uC fails to send a slave byte)
+		- PSD (pack shutdown)
+		- FETSOFF
+		- SD (DFET turn off indicator)
+		- EOC
+
+	   -> ISL9238
+		- PROCHOT#
+		- ACOK
+		- BATGONE
+		- AMON/BMON (analog)
+		- PSYS (analog)
+
+
+=================================
+User Board Functional Blocks/ICs:
+=================================
+
+Capacitive touch pads
+	- play/pause
+	- volume+/next
+	- volume-/previous
+	- BT/AUX/other function pad
+
+Capacitive touch sensor (IC)
+	- LDO?
+
+Neopixel
+	- Neopixel strip/line as indicator/fancy lights
+
+Darker wood mounted to main chassis using black screws, or inlaid into the main chassis
+
+
+================
+Mechanical Board
+================
+
+USB jack
+AUX jack
+Power jack
+Power indicator (RGB?)
+Flat Flex cable to connect to main boards?
+
+
+====================
+Party Trick Protocol
+====================
+
+External Bass Exciter connection? (built into BC127 or wired?)
+Lights?
